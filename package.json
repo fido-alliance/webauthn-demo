@@ -1,0 +1,20 @@
+{
+  "name": "webauthn-tutorial",
+  "version": "0.0.1",
+  "description": "",
+  "main": "app.js",
+  "dependencies": {
+    "express": "^4.15.4"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/fido-alliance/"
+  },
+  "private": true,
+  "author": "Yuriy Ackermann <yuriy@fidoalliance.org> (https://jeman.de/)",
+  "bugs": {
+    "url": "https://github.com/fido-alliance//issues",
+    "email": "yuriy@fidoalliance.org"
+  },
+  "homepage": "https://github.com/fido-alliance/#readme"
+}
