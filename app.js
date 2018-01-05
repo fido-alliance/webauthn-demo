@@ -1,13 +1,14 @@
 const express    = require('express');
+const bodyParser = require('body-parser');
 const urllib     = require('url');
 const config     = require('./config.json');
+const path       = require('path');
 
-const app  = express();
-const port = config.port || 3000;
+const app = express();
 
-app.listen(port);
+app.use(bodyParser.json());
 
-console.log(`Started app on port ${port}`);
+app.use(express.static(path.join(__dirname, 'static')));
 
 app.post('/register', (request, response) => {
     response.json({})
@@ -16,5 +17,10 @@ app.post('/register', (request, response) => {
 app.post('/login', (request, response) => {
     response.json({})
 })
+
+
+const port = config.port || 3000;
+app.listen(port);
+console.log(`Started app on port ${port}`);
 
 module.exports = app;
