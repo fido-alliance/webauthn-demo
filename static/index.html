@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title></title>
+    <link rel="stylesheet" href="css/milligram.min.css">
+    <style>
+        html, body, .container, .row {
+            height: 100%;
+        }
+
+        .formcontainer {
+            background: #f0f0f0;
+            padding: 15px;
+        }
+
+        .formcontainer form, .formcontainer fieldset{
+            margin:0;
+        }
+
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="row row-center">
+            <div class="column">
+                <div class="formcontainer register">
+                    <h3>Register page</h3>
+                    <form>
+                      <fieldset>
+                        <label for="nameField">username</label>
+                        <input type="text" name="username">
+                        <label for="nameField">password</label>
+                        <input type="password" name="password">
+                        <input class="button-primary" type="submit" value="Register">
+                      </fieldset>
+                    </form>
+                </div>
+            </div>
+            <div class="column">
+                <div class="formcontainer login">
+                    <h3>Login page</h3>
+                    <form>
+                      <fieldset>
+                        <label for="nameField">username</label>
+                        <input type="text" name="username">
+                        <label for="nameField">password</label>
+                        <input type="password" name="password">
+                        <input class="button-primary" type="submit" value="Login">
+                      </fieldset>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
