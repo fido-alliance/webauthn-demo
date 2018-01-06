@@ -77,7 +77,6 @@ router.get('/isLoggedIn', (request, response) => {
     }
 })
 
-
 router.get('/logout', (request, response) => {
     request.session.loggedIn = false;
 
@@ -85,4 +84,20 @@ router.get('/logout', (request, response) => {
         'status': 'ok'
     })
 })
+
+
+router.get('/theSecret', (request, response) => {
+    if(!request.session.loggedIn) {
+        response.json({
+            'status': 'failed',
+            'message': 'Access denied'
+        })
+    } else {
+        response.json({
+            'status': 'ok',
+            'message': '<img width="250px" src="img/theworstofthesecrets.jpg">'
+        })
+    }
+})
+
 module.exports = router;
