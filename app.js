@@ -1,16 +1,26 @@
-const express    = require('express');
-const bodyParser = require('body-parser');
-const urllib     = require('url');
-const config     = require('./config.json');
-const path       = require('path');
-const app        = express();
-const routes     = require('./routes');
+const express       = require('express');
+const bodyParser    = require('body-parser');
+const cookieSession = require('cookie-session');
+const cookieParser  = require('cookie-parser');
+const urllib        = require('url');
+const path          = require('path');
+
+const config        = require('./config.json');
+const routes        = require('./routes');
+
+const app           = express();
 
 app.use(bodyParser.json());
 
 /* ----- session ----- */
-app.use(express.cookieDecoder());
-app.use(express.session());
+app.use(cookieSession({
+  name: 'session',
+  keys: ['verySecretKey...totally'],
+
+  // Cookie Options
+  maxAge: 24 * 60 * 60 * 1000 // 24 hours
+}))
+app.use(cookieParser())
 
 /* ----- serve static ----- */
 app.use(express.static(path.join(__dirname, 'static')));

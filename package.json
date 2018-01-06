@@ -5,6 +5,8 @@
   "main": "app.js",
   "dependencies": {
     "body-parser": "^1.15.2",
+    "cookie-parser": "^1.4.3",
+    "cookie-session": "^2.0.0-beta.3",
     "express": "^4.15.4"
   },
   "repository": {
