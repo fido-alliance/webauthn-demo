@@ -17,13 +17,21 @@
             margin:0;
         }
 
+        .secretcontainer {
+            background: #f0f0f0;
+            padding: 15px;
+        }
+
+        #registerContainer, #mainContainer {
+            display: none;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="row row-center">
 
-            <div class="column">
+            <div class="column" id="registerContainer">
                 <div class="formcontainer register">
                     <h3>Register page</h3>
                     <form id="register">
@@ -35,10 +43,12 @@
                         <input class="button-primary" type="submit" value="Register">
                       </fieldset>
                     </form>
+
+                    <a href="#" id="toLogin">Already registered? Login page</a>
                 </div>
             </div>
 
-            <div class="column">
+            <div class="column" id="loginContainer">
                 <div class="formcontainer login">
                     <h3>Login page</h3>
                     <form id="login">
@@ -50,13 +60,32 @@
                         <input class="button-primary" type="submit" value="Login">
                       </fieldset>
                     </form>
+
+                    <a href="#" id="toRegistration">Not registered yet? Registration</a>
                 </div>
+            </div>
+
+            <div class="column" id="mainContainer">
+               <div class="secretcontainer">
+                   <h3 id="theSecret">I have no idea</h3>
+                   <button id="logoutButton">Logout</button>
+               </div>
             </div>
 
         </div>
     </div>
 
     <script src="js/jquery-3.2.1.min.js"></script>
+    <script src="js/view.js"></script>
     <script src="js/auth.js"></script>
+    <script>
+        $(document).ready(() => {
+            checkIfLoggedIn()
+            .then((response) => {
+                if(response)
+                    return loadMainContainer()
+            })
+        })
+    </script>
 </body>
 </html>
