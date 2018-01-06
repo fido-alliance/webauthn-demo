@@ -3,21 +3,14 @@ const bodyParser = require('body-parser');
 const urllib     = require('url');
 const config     = require('./config.json');
 const path       = require('path');
-
-const app = express();
+const app        = express();
+const routes     = require('./routes');
 
 app.use(bodyParser.json());
 
 app.use(express.static(path.join(__dirname, 'static')));
 
-app.post('/register', (request, response) => {
-    response.json({})
-})
-
-app.post('/login', (request, response) => {
-    response.json({})
-})
-
+app.use('/', routes)
 
 const port = config.port || 3000;
 app.listen(port);
