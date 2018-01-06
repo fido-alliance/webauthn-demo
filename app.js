@@ -8,6 +8,11 @@ const routes     = require('./routes');
 
 app.use(bodyParser.json());
 
+/* ----- session ----- */
+app.use(express.cookieDecoder());
+app.use(express.session());
+
+/* ----- serve static ----- */
 app.use(express.static(path.join(__dirname, 'static')));
 
 app.use('/', routes)
