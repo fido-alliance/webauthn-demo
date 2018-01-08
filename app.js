@@ -7,7 +7,9 @@ const path          = require('path');
 const crypto        = require('crypto');
 
 const config        = require('./config.json');
-const routes        = require('./routes');
+const defaultroutes = require('./routes/default');
+const passwordauth  = require('./routes/password');
+const webuathnauth  = require('./routes/webauthn.js');
 
 const app           = express();
 
@@ -26,7 +28,9 @@ app.use(cookieParser())
 /* ----- serve static ----- */
 app.use(express.static(path.join(__dirname, 'static')));
 
-app.use('/', routes)
+app.use('/', defaultroutes)
+app.use('/password', passwordauth)
+app.use('/webauthn', webuathnauth)
 
 const port = config.port || 3000;
 app.listen(port);
