@@ -3,7 +3,7 @@ const router  = express.Router();
 
 let database = {};
 router.post('/register', (request, response) => {
-    if(!request.body || !request.body.username || !request.body.password) {
+    if(!request.body || !request.body.username || !request.body.password || !request.body.name) {
         response.json({
             'status': 'failed',
             'message': 'Request missing username or password!'
@@ -14,6 +14,7 @@ router.post('/register', (request, response) => {
 
     let username = request.body.username;
     let password = request.body.password;
+    let name     = request.body.name;
 
     if(database[username]) {
         response.json({
@@ -26,10 +27,12 @@ router.post('/register', (request, response) => {
 
 
     database[username] = {
-        'password': password
+        'password': password,
+        'name': name
     }
 
     request.session.loggedIn = true;
+    request.session.username = username
 
     response.json({
         'status': 'ok'
@@ -59,6 +62,7 @@ router.post('/login', (request, response) => {
     }
 
     request.session.loggedIn = true;
+    request.session.username = username
 
     response.json({
         'status': 'ok'
@@ -79,14 +83,15 @@ router.get('/isLoggedIn', (request, response) => {
 
 router.get('/logout', (request, response) => {
     request.session.loggedIn = false;
+    request.session.username = undefined;
 
     response.json({
         'status': 'ok'
     })
 })
 
-
-router.get('/theSecret', (request, response) => {
+router.get('/personalInfo', (request, response) => {
+    console.log('loggedIn?', request.session.loggedIn, !!request.session.loggedIn)
     if(!request.session.loggedIn) {
         response.json({
             'status': 'failed',
@@ -95,7 +100,8 @@ router.get('/theSecret', (request, response) => {
     } else {
         response.json({
             'status': 'ok',
-            'message': '<img width="250px" src="img/theworstofthesecrets.jpg">'
+            'name': database[request.session.username].name,
+            'theSecret': '<img width="250px" src="img/theworstofthesecrets.jpg">'
         })
     }
 })

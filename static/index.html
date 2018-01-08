@@ -36,9 +36,11 @@
                     <h3>Register page</h3>
                     <form id="register">
                       <fieldset>
-                        <label for="nameField">username</label>
+                        <label for="name">name</label>
+                        <input type="text" name="name">
+                        <label for="username">username</label>
                         <input type="text" name="username">
-                        <label for="nameField">password</label>
+                        <label for="password">password</label>
                         <input type="password" name="password">
                         <input class="button-primary" type="submit" value="Register">
                       </fieldset>
@@ -66,10 +68,12 @@
             </div>
 
             <div class="column" id="mainContainer">
-               <div class="secretcontainer">
-                   <h3 id="theSecret">I have no idea</h3>
-                   <button id="logoutButton">Logout</button>
-               </div>
+
+                <div class="secretcontainer">
+                    <h3>Hey <span id="name"></span>!</h3>
+                    <div id="theSecret"></div>
+                    <button id="logoutButton">Logout</button>
+                </div>
             </div>
 
         </div>

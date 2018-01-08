@@ -4,12 +4,13 @@ $('#register').submit(function(event) {
 
     let username = this.username.value;
     let password = this.password.value;
+    let name     = this.name.value;
 
-    if(!username || !password) {
-        alert('Username or password is missing!')
+    if(!username || !password || !name) {
+        alert('Name, username or password is missing!')
     }
 
-    let formBody = {username, password}; 
+    let formBody = {username, password, name}; 
 
     fetch('/register', {
         method: 'POST',
@@ -60,11 +61,12 @@ $('#login').submit(function(event) {
 })
 
 let loadMainContainer = () => {
-    return fetch('/theSecret', {credentials: 'include'})
+    return fetch('/personalInfo', {credentials: 'include'})
         .then((response) => response.json())
         .then((response) => {
             if(response.status === 'ok') {
-                $('#theSecret').html(response.message)
+                $('#theSecret').html(response.theSecret)
+                $('#name').html(response.name)
                 $('#registerContainer').hide();
                 $('#loginContainer').hide();
                 $('#mainContainer').show();
