@@ -13,7 +13,7 @@ $('#register').submit(function(event) {
 
     let formBody = {username, password, name}; 
 
-    fetch('/register', {
+    fetch('/password/register', {
         method: 'POST',
         credentials: 'include',
         headers: {
@@ -44,7 +44,7 @@ $('#login').submit(function(event) {
     }
 
     let formBody = {username, password}; 
-    fetch('/login', {
+    fetch('/password/login', {
         method: 'POST',
         credentials: 'include',
         headers: {
@@ -62,38 +62,4 @@ $('#login').submit(function(event) {
     })
 })
 
-let loadMainContainer = () => {
-    return fetch('/personalInfo', {credentials: 'include'})
-        .then((response) => response.json())
-        .then((response) => {
-            if(response.status === 'ok') {
-                $('#theSecret').html(response.theSecret)
-                $('#name').html(response.name)
-                $('#registerContainer').hide();
-                $('#loginContainer').hide();
-                $('#mainContainer').show();
-            } else {
-                alert(`Error! ${response.message}`)
-            }
-        })
-}
 
-let checkIfLoggedIn = () => {
-    return fetch('/isLoggedIn', {credentials: 'include'})
-        .then((response) => response.json())
-        .then((response) => {
-            if(response.status === 'ok') {
-                return true
-            } else {
-                return false
-            }
-        })
-}
-
-$('#logoutButton').click(() => {
-    fetch('/logout', {credentials: 'include'});
-
-    $('#registerContainer').hide();
-    $('#mainContainer').hide();
-    $('#loginContainer').show();
-})
