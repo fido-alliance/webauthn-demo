@@ -8,6 +8,7 @@ $('#register').submit(function(event) {
 
     if(!username || !password || !name) {
         alert('Name, username or password is missing!')
+        return
     }
 
     let formBody = {username, password, name}; 
@@ -39,6 +40,7 @@ $('#login').submit(function(event) {
 
     if(!username || !password) {
         alert('Username or password is missing!')
+        return
     }
 
     let formBody = {username, password}; 
