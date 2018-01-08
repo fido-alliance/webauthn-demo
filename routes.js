@@ -1,5 +1,6 @@
 const express = require('express');
 const router  = express.Router();
+const utils   = require('./utils')
 
 let database = {};
 router.post('/register', (request, response) => {
@@ -28,7 +29,8 @@ router.post('/register', (request, response) => {
 
     database[username] = {
         'password': password,
-        'name': name
+        'name': name,
+        'id': utils.randomBase64URLBuffer()
     }
 
     request.session.loggedIn = true;
@@ -69,6 +71,8 @@ router.post('/login', (request, response) => {
     })
 })
 
+
+/* Returns if user is logged in */
 router.get('/isLoggedIn', (request, response) => {
     if(!request.session.loggedIn) {
         response.json({
@@ -81,6 +85,7 @@ router.get('/isLoggedIn', (request, response) => {
     }
 })
 
+/* Logs user out */
 router.get('/logout', (request, response) => {
     request.session.loggedIn = false;
     request.session.username = undefined;
@@ -90,8 +95,8 @@ router.get('/logout', (request, response) => {
     })
 })
 
+/* Returns personal info and THE SECRET INFORMATION */
 router.get('/personalInfo', (request, response) => {
-    console.log('loggedIn?', request.session.loggedIn, !!request.session.loggedIn)
     if(!request.session.loggedIn) {
         response.json({
             'status': 'failed',
