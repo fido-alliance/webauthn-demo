@@ -30,7 +30,8 @@ router.post('/register', (request, response) => {
     database[username] = {
         'name': name,
         'registered': false,
-        'id': utils.randomBase64URLBuffer()
+        'id': utils.randomBase64URLBuffer(),
+        'authenticators': []
     }
 
     let challengeMakeCred    = utils.generateServerMakeCredRequest(username, name, database[username].id)
@@ -108,9 +109,9 @@ router.post('/response', (request, response) => {
         /* This is create cred */
         result = utils.verifyAuthenticatorAttestationResponse(webauthnResp);
 
-        if(result) {
-            database[request.session.username].registered = true;
-            database[request.session.username].publicKey  = utils.extractPublicKey(webauthnResp);
+        if(result.verified) {
+            database[request.session.username].authenticators.push(result.authrInfo);
+            database[request.session.username].registered = true
         }
 
     } else if(webauthnResp.authenticatorData !== undefined) {
@@ -118,7 +119,7 @@ router.post('/response', (request, response) => {
         result = utils.verifyAuthenticatorAssertionResponse(webauthnResp, database[request.session.username].publicKey);
     }
 
-    if(result) {
+    if(result.verified) {
         request.session.loggedIn = true;
         response.json({
             'status': 'ok'
