@@ -19,7 +19,7 @@ let randomBase64URLBuffer = (len) => {
  * @param  {String} username       - username
  * @param  {String} displayName    - user's personal display name
  * @param  {String} id             - user's base64url encoded id
- * @return {ServerMakeCredRequest} - server encoded make credentials request
+ * @return {MakePublicKeyCredentialOptions} - server encoded make credentials request
  */
 let generateServerMakeCredRequest = (username, displayName, id) => {
     return {
@@ -43,8 +43,39 @@ let generateServerMakeCredRequest = (username, displayName, id) => {
     }
 }
 
+/**
+ * Generates getAssertion request
+ * @param  {String} id             - user's base64url encoded id
+ * @return {PublicKeyCredentialRequestOptions} - server encoded get assertion request
+ */
+let generateServerGetAssertion = (id) => {
+    return {
+        challenge: generateRandomBuffer(32),
+        allowCredentials: [{
+              type: 'public-key',
+              id: id
+              transports: ['usb', 'nfc', 'ble']
+        }]
+    }
+}
+
+let verifyAuthenticatorAttestationResponse = (webAuthnResponse) => {
+
+}
+
+let verifyAuthenticatorAssertionResponse = (webAuthnResponse, publicKey) => {
+
+}
+
+let extractPublicKey = (webAuthnResponse) => {
+
+}
 
 module.exports = {
     randomBase64URLBuffer,
-    generateServerMakeCredRequest
+    generateServerMakeCredRequest,
+    generateServerGetAssertion,
+    verifyAuthenticatorAttestationResponse,
+    verifyAuthenticatorAssertionResponse,
+    extractPublicKey
 }
