@@ -3,6 +3,25 @@ const base64url = require('base64url');
 const cbor      = require('cbor');
 
 /**
+ * U2F Presence constant
+ */
+let U2F_USER_PRESENTED = 0x01;
+
+/**
+ * Takes signature, data and PEM public key and tries to verify signature
+ * @param  {Buffer} signature
+ * @param  {Buffer} data
+ * @param  {String} publicKey - PEM encoded public key
+ * @return {Boolean}
+ */
+let verifySignature = (signature, data, publicKey) => {
+    return crypto.createVerify('SHA256')
+        .update(data)
+        .verify(publicKey, signature);
+}
+
+
+/**
  * Returns base64url encoded buffer of the given length
  * @param  {Number} len - length of the buffer
  * @return {String}     - base64url random buffer
@@ -16,18 +35,51 @@ let randomBase64URLBuffer = (len) => {
 }
 
 /**
- * Generates getAssertion request
+ * Generates makeCredentials request
+ * @param  {String} username       - username
+ * @param  {String} displayName    - user's personal display name
  * @param  {String} id             - user's base64url encoded id
+ * @return {MakePublicKeyCredentialOptions} - server encoded make credentials request
+ */
+let generateServerMakeCredRequest = (username, displayName, id) => {
+    return {
+        challenge: randomBase64URLBuffer(32),
+
+        rp: {
+            name: "ACME Corporation"
+        },
+
+        user: {
+            id: id,
+            name: username,
+            displayName: displayName
+        },
+
+        pubKeyCredParams: [
+            {
+                type: "public-key", alg: -7 // "ES256" IANA COSE Algorithms registry
+            }
+        ]
+    }
+}
+
+/**
+ * Generates getAssertion request
+ * @param  {Array} authenticators              - list of registered authenticators
  * @return {PublicKeyCredentialRequestOptions} - server encoded get assertion request
  */
-let generateServerGetAssertion = (id) => {
-    return {
-        challenge: generateRandomBuffer(32),
-        allowCredentials: [{
+let generateServerGetAssertion = (authenticators) => {
+    let allowCredentials = [];
+    for(let authr of authenticators) {
+        allowCredentials.push({
               type: 'public-key',
-              id: id,
+              id: authr.credID,
               transports: ['usb', 'nfc', 'ble']
-        }]
+        })
+    }
+    return {
+        challenge: randomBase64URLBuffer(32),
+        allowCredentials: allowCredentials
     }
 }
 
@@ -120,42 +172,14 @@ let ASN1toPEM = (pkBuffer) => {
 }
 
 /**
- * Generates makeCredentials request
- * @param  {String} username       - username
- * @param  {String} displayName    - user's personal display name
- * @param  {String} id             - user's base64url encoded id
- * @return {MakePublicKeyCredentialOptions} - server encoded make credentials request
- */
-let generateServerMakeCredRequest = (username, displayName, id) => {
-    return {
-        challenge: randomBase64URLBuffer(),
-
-        rp: {
-            name: "ACME Corporation"
-        },
-
-        user: {
-            id: id,
-            name: username,
-            displayName: displayName
-        },
-
-        pubKeyCredParams: [
-            {
-                type: "public-key", alg: -7 // "ES256" IANA COSE Algorithms registry
-            }
-        ]
-    }
-}
-
-/**
  * Parses authenticatorData buffer.
  * @param  {Buffer} buffer - authenticatorData buffer
  * @return {Object}        - parsed authenticatorData struct
  */
-let parseAuthenticatorData = (buffer) => {
+let parseMakeCredAuthData = (buffer) => {
     let rpIdHash      = buffer.slice(0, 32);          buffer = buffer.slice(32);
-    let flags         = buffer.slice(0, 1);           buffer = buffer.slice(1);
+    let flagsBuf      = buffer.slice(0, 1);           buffer = buffer.slice(1);
+    let flags         = flagsBuf[0];
     let counterBuf    = buffer.slice(0, 4);           buffer = buffer.slice(4);
     let counter       = counterBuf.readUInt32BE(0);
     let aaguid        = buffer.slice(0, 16);          buffer = buffer.slice(16);
@@ -164,7 +188,7 @@ let parseAuthenticatorData = (buffer) => {
     let credID        = buffer.slice(0, credIDLen);   buffer = buffer.slice(credIDLen);
     let COSEPublicKey = buffer;
 
-    return {rpIdHash, flags, counter, counterBuf, aaguid, credID, COSEPublicKey}
+    return {rpIdHash, flagsBuf, flags, counter, counterBuf, aaguid, credID, COSEPublicKey}
 }
 
 let verifyAuthenticatorAttestationResponse = (webAuthnResponse) => {
@@ -173,7 +197,10 @@ let verifyAuthenticatorAttestationResponse = (webAuthnResponse) => {
 
     let response = {'verified': false};
     if(ctapMakeCredResp.fmt === 'fido-u2f') {
-        let authrDataStruct = parseAuthenticatorData(ctapMakeCredResp.authData);
+        let authrDataStruct = parseMakeCredAuthData(ctapMakeCredResp.authData);
+
+        if(!(authrDataStruct.flags & U2F_USER_PRESENTED))
+            throw new Error('User was NOT presented durring authentication!');
 
         let clientDataHash  = hash(base64url.toBuffer(webAuthnResponse.response.clientDataJSON))
         let reservedByte    = Buffer.from([0x00]);
@@ -183,12 +210,11 @@ let verifyAuthenticatorAttestationResponse = (webAuthnResponse) => {
         let PEMCertificate = ASN1toPEM(ctapMakeCredResp.attStmt.x5c[0]);
         let signature      = ctapMakeCredResp.attStmt.sig;
 
-        response.verified = crypto.createVerify('SHA256') // The actual signature alg is ECDSA and determined
-            .update(signatureBase)                        // by ASN/DER data in public key. SHA256 is what we set here.
-            .verify(PEMCertificate, signature);
+        response.verified = verifySignature(signature, signatureBase, PEMCertificate)
 
         if(response.verified) {
             response.authrInfo = {
+                fmt: 'fido-u2f',
                 publicKey: base64url.encode(publicKey),
                 counter: authrDataStruct.counter,
                 credID: base64url.encode(authrDataStruct.credID)
@@ -199,8 +225,65 @@ let verifyAuthenticatorAttestationResponse = (webAuthnResponse) => {
     return response
 }
 
-let verifyAuthenticatorAssertionResponse = (webAuthnResponse, publicKey) => {
 
+/**
+ * Takes an array of registered authenticators and find one specified by credID
+ * @param  {String} credID        - base64url encoded credential
+ * @param  {Array} authenticators - list of authenticators
+ * @return {Object}               - found authenticator
+ */
+let findAuthr = (credID, authenticators) => {
+    for(let authr of authenticators) {
+        if(authr.credID === credID)
+            return authr
+    }
+
+    throw new Error(`Unknown authenticator with credID ${credID}!`)
+}
+
+/**
+ * Parses AuthenticatorData from GetAssertion response
+ * @param  {Buffer} buffer - Auth data buffer
+ * @return {Object}        - parsed authenticatorData struct
+ */
+let parseGetAssertAuthData = (buffer) => {
+    let rpIdHash      = buffer.slice(0, 32);          buffer = buffer.slice(32);
+    let flagsBuf      = buffer.slice(0, 1);           buffer = buffer.slice(1);
+    let flags         = flagsBuf[0];
+    let counterBuf    = buffer.slice(0, 4);           buffer = buffer.slice(4);
+    let counter       = counterBuf.readUInt32BE(0);
+
+    return {rpIdHash, flagsBuf, flags, counter, counterBuf}
+}
+
+let verifyAuthenticatorAssertionResponse = (webAuthnResponse, authenticators) => {
+    let authr = findAuthr(webAuthnResponse.id, authenticators);
+    let authenticatorData = base64url.toBuffer(webAuthnResponse.response.authenticatorData);
+
+    let response = {'verified': false};
+    if(authr.fmt === 'fido-u2f') {
+        let authrDataStruct  = parseGetAssertAuthData(authenticatorData);
+
+        if(!(authrDataStruct.flags & U2F_USER_PRESENTED))
+            throw new Error('User was NOT presented durring authentication!');
+
+        let clientDataHash   = hash(base64url.toBuffer(webAuthnResponse.response.clientDataJSON))
+        let signatureBase    = Buffer.concat([authrDataStruct.rpIdHash, authrDataStruct.flagsBuf, authrDataStruct.counterBuf, clientDataHash]);
+
+        let publicKey = ASN1toPEM(base64url.toBuffer(authr.publicKey));
+        let signature = base64url.toBuffer(webAuthnResponse.response.signature);
+
+        response.verified = verifySignature(signature, signatureBase, publicKey)
+
+        if(response.verified) {
+            if(response.counter <= authr.counter)
+                throw new Error('Authr counter did not increase!');
+
+            authr.counter = authrDataStruct.counter
+        }
+    }
+
+    return response
 }
 
 module.exports = {
