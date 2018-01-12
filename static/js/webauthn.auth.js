@@ -96,12 +96,14 @@ $('#login').submit(function(event) {
         return
     }
 
-    getGetAssertionChallenge({username, name})
+    getGetAssertionChallenge({username})
         .then((response) => {
+            console.log(response)
             let publicKey = preformatGetAssertReq(response);
             return navigator.credentials.get({ publicKey })
         })
         .then((response) => {
+            console.log()
             let getAssertionResponse = publicKeyCredentialToJSON(response);
             return sendWebAuthnResponse(getAssertionResponse)
         })

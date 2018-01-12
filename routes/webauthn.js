@@ -58,13 +58,13 @@ router.post('/login', (request, response) => {
     if(!database[username] || !database[username].registered) {
         response.json({
             'status': 'failed',
-            'message': `Username ${username} already does not exist!`
+            'message': `User ${username} does not exist!`
         })
 
         return
     }
 
-    let getAssertion    = utils.generateServerGetAssertion(database[username].id)
+    let getAssertion    = utils.generateServerGetAssertion(database[username].authenticators)
     getAssertion.status = 'ok'
 
     request.session.challenge = getAssertion.challenge;
@@ -115,7 +115,7 @@ router.post('/response', (request, response) => {
         }
     } else if(webauthnResp.response.authenticatorData !== undefined) {
         /* This is get assertion */
-        result = utils.verifyAuthenticatorAssertionResponse(webauthnResp, database[request.session.username].publicKey);
+        result = utils.verifyAuthenticatorAssertionResponse(webauthnResp, database[request.session.username].authenticators);
     } else {
         response.json({
             'status': 'failed',
@@ -129,7 +129,7 @@ router.post('/response', (request, response) => {
     } else {
         response.json({
             'status': 'failed',
-            'message': 'Can not determine type of response!'
+            'message': 'Can not authenticate signature!'
         })
     }
 })
