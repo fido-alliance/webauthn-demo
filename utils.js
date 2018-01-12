@@ -25,7 +25,7 @@ let generateServerGetAssertion = (id) => {
         challenge: generateRandomBuffer(32),
         allowCredentials: [{
               type: 'public-key',
-              id: id
+              id: id,
               transports: ['usb', 'nfc', 'ble']
         }]
     }
