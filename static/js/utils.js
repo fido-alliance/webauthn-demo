@@ -52,3 +52,16 @@ var preformatMakeCredReq = (makeCredReq) => {
 
     return makeCredReq
 }
+
+/**
+ * Decodes arrayBuffer required fields.
+ */
+var preformatGetAssertReq = (getAssert) => {
+    getAssert.challenge = base64url.decode(getAssert.challenge);
+    
+    for(let allowCred of getAssert.allowCredentials) {
+        allowCred.id = base64url.decode(allowCred.id);
+    }
+
+    return getAssert
+}
