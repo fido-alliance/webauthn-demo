@@ -104,8 +104,8 @@ router.post('/response', (request, response) => {
         })
     }
 
-    let result = false;
-    if(webauthnResp.attestationObject !== undefined) {
+    let result;
+    if(webauthnResp.response.attestationObject !== undefined) {
         /* This is create cred */
         result = utils.verifyAuthenticatorAttestationResponse(webauthnResp);
 
@@ -113,23 +113,25 @@ router.post('/response', (request, response) => {
             database[request.session.username].authenticators.push(result.authrInfo);
             database[request.session.username].registered = true
         }
-
-    } else if(webauthnResp.authenticatorData !== undefined) {
+    } else if(webauthnResp.response.authenticatorData !== undefined) {
         /* This is get assertion */
         result = utils.verifyAuthenticatorAssertionResponse(webauthnResp, database[request.session.username].publicKey);
+    } else {
+        response.json({
+            'status': 'failed',
+            'message': 'Can not determine type of response!'
+        })
     }
 
     if(result.verified) {
         request.session.loggedIn = true;
+        response.json({ 'status': 'ok' })
+    } else {
         response.json({
-            'status': 'ok'
+            'status': 'failed',
+            'message': 'Can not determine type of response!'
         })
     }
-
-    response.json({
-        'status': 'failed',
-        'message': 'Can not determine type of response!'
-    })
 })
 
 module.exports = router;
