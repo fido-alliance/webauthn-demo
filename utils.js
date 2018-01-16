@@ -46,7 +46,7 @@ let generateServerMakeCredRequest = (username, displayName, id) => {
         challenge: randomBase64URLBuffer(32),
 
         rp: {
-            name: "ACME Corporation"
+            name: "FIDO Examples Corporation"
         },
 
         user: {
