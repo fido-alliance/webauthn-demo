@@ -1,3 +1,4 @@
+'use strict';
 /* Handle for register form submission */
 $('#register').submit(function(event) {
     event.preventDefault();
