@@ -1,5 +1,7 @@
 # FIDO Alliance WebAuthn demo
 
+Slides: http://slides.com/herrjemand/jan-2018-fido-seminar-webauthn-tutorial#/
+
 ### Requirements
 
 - Firefox Nightly
