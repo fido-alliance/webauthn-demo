@@ -1,6 +1,6 @@
 # FIDO Alliance WebAuthn demo
 
-Slides: http://slides.com/herrjemand/jan-2018-fido-seminar-webauthn-tutorial#/
+Slides: https://slides.com/fidoalliance/jan-2018-fido-seminar-webauthn-tutorial#/
 
 ### Requirements
 
