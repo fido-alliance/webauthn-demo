@@ -55,6 +55,8 @@ let generateServerMakeCredRequest = (username, displayName, id) => {
             displayName: displayName
         },
 
+        attestation: 'direct',
+
         pubKeyCredParams: [
             {
                 type: "public-key", alg: -7 // "ES256" IANA COSE Algorithms registry
