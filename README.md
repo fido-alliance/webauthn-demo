@@ -11,6 +11,6 @@ Slides: https://slides.com/fidoalliance/jan-2018-fido-seminar-webauthn-tutorial#
 ### Run
 
 - `git clone https://github.com/fido-alliance/webauthn-demo/`
-- `cd webauthn-tutorial`
+- `cd webauthn-demo`
 - `npm install`
 - `node app`
