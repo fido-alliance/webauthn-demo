@@ -1,7 +1,7 @@
 const crypto    = require('crypto');
 const base64url = require('base64url');
 const cbor      = require('cbor');
-const x509      = require('x509');
+const { Certificate } = require('@fidm/x509');
 const iso_3166_1 = require('iso-3166-1');
 
 /**
@@ -237,18 +237,19 @@ let verifyAuthenticatorAttestationResponse = (webAuthnResponse) => {
         let PEMCertificate = ASN1toPEM(ctapMakeCredResp.attStmt.x5c[0]);
         let signature      = ctapMakeCredResp.attStmt.sig;
 
-        let pem = x509.parseCert(PEMCertificate);
+        let pem = Certificate.fromPEM(PEMCertificate);
 
         // Getting requirements from https://www.w3.org/TR/webauthn/#packed-attestation
+        let aaguid_ext = pem.getExtension('1.3.6.1.4.1.45724.1.1.4')
+
         response.verified = verifySignature(signature, signatureBase, PEMCertificate) &&
-                            pem.version == 2 && // version must be 3 (which is indicated by an ASN.1 INTEGER with value 2)
+                            pem.version == 3 && // version must be 3 (which is indicated by an ASN.1 INTEGER with value 2)
                             typeof iso_3166_1.whereAlpha2(pem.subject.countryName) !== 'undefined' && // ISO 3166 valid country
                             pem.subject.organizationName && // Legal name of the Authenticator vendor (UTF8String)
                             pem.subject.organizationalUnitName === 'Authenticator Attestation' && //Literal string “Authenticator Attestation” (UTF8String)
                             pem.subject.commonName && // A UTF8String of the vendor’s choosing
-                            pem.extensions.basicConstraints.indexOf('CA:FALSE') != -1; //The Basic Constraints extension MUST have the CA component set to false
-
-        // TODO: add aaguid comparison
+                            !pem.extensions.isCA && // The Basic Constraints extension MUST have the CA component set to false
+                            (aaguid_ext != null ? !aaguid_ext.critical && aaguid_ext.value.slice(2).equals(authrDataStruct.aaguid) : true ); // If attestnCert contains an extension with OID 1.3.6.1.4.1.45724.1.1.4 (id-fido-gen-ce-aaguid) verify that the value of this extension matches the aaguid in authenticatorData.
 
         if(response.verified) {
             response.authrInfo = {
