@@ -9,7 +9,9 @@
     "cbor": "^3.0.3",
     "cookie-parser": "^1.4.3",
     "cookie-session": "^2.0.0-beta.3",
-    "express": "^4.15.4"
+    "express": "^4.15.4",
+    "iso-3166-1": "^1.1.0",
+    "x509": "github:stormwin/node-x509"
   },
   "repository": {
     "type": "git",

@@ -1,6 +1,8 @@
 const crypto    = require('crypto');
 const base64url = require('base64url');
 const cbor      = require('cbor');
+const x509      = require('x509');
+const iso_3166_1 = require('iso-3166-1');
 
 /**
  * U2F Presence constant
@@ -235,7 +237,18 @@ let verifyAuthenticatorAttestationResponse = (webAuthnResponse) => {
         let PEMCertificate = ASN1toPEM(ctapMakeCredResp.attStmt.x5c[0]);
         let signature      = ctapMakeCredResp.attStmt.sig;
 
-        response.verified = verifySignature(signature, signatureBase, PEMCertificate)
+        let pem = x509.parseCert(PEMCertificate);
+
+        // Getting requirements from https://www.w3.org/TR/webauthn/#packed-attestation
+        response.verified = verifySignature(signature, signatureBase, PEMCertificate) &&
+                            pem.version == 2 && // version must be 3 (which is indicated by an ASN.1 INTEGER with value 2)
+                            typeof iso_3166_1.whereAlpha2(pem.subject.countryName) !== 'undefined' && // ISO 3166 valid country
+                            pem.subject.organizationName && // Legal name of the Authenticator vendor (UTF8String)
+                            pem.subject.organizationalUnitName === 'Authenticator Attestation' && //Literal string “Authenticator Attestation” (UTF8String)
+                            pem.subject.commonName && // A UTF8String of the vendor’s choosing
+                            pem.extensions.basicConstraints.indexOf('CA:FALSE') != -1; //The Basic Constraints extension MUST have the CA component set to false
+
+        // TODO: add aaguid comparison
 
         if(response.verified) {
             response.authrInfo = {
