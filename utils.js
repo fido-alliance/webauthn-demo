@@ -222,6 +222,31 @@ let verifyAuthenticatorAttestationResponse = (webAuthnResponse) => {
                 credID: base64url.encode(authrDataStruct.credID)
             }
         }
+    } else if(ctapMakeCredResp.fmt === 'packed' && ctapMakeCredResp.attStmt.hasOwnProperty('x5c')) {
+        let authrDataStruct = parseMakeCredAuthData(ctapMakeCredResp.authData);
+
+        if(!(authrDataStruct.flags & U2F_USER_PRESENTED))
+            throw new Error('User was NOT presented durring authentication!');
+
+        let clientDataHash  = hash(base64url.toBuffer(webAuthnResponse.response.clientDataJSON))
+        let publicKey       = COSEECDHAtoPKCS(authrDataStruct.COSEPublicKey)
+        let signatureBase   = Buffer.concat([ctapMakeCredResp.authData, clientDataHash]);
+
+        let PEMCertificate = ASN1toPEM(ctapMakeCredResp.attStmt.x5c[0]);
+        let signature      = ctapMakeCredResp.attStmt.sig;
+
+        response.verified = verifySignature(signature, signatureBase, PEMCertificate)
+
+        if(response.verified) {
+            response.authrInfo = {
+                fmt: 'fido-u2f',
+                publicKey: base64url.encode(publicKey),
+                counter: authrDataStruct.counter,
+                credID: base64url.encode(authrDataStruct.credID)
+            }
+        }
+    } else {
+        throw new Error('Unsupported attestation format! ' + ctapMakeCredResp.fmt);
     }
 
     return response
