@@ -249,7 +249,7 @@ let verifyAuthenticatorAttestationResponse = (webAuthnResponse) => {
                             pem.subject.organizationalUnitName === 'Authenticator Attestation' && //Literal string “Authenticator Attestation” (UTF8String)
                             pem.subject.commonName && // A UTF8String of the vendor’s choosing
                             !pem.extensions.isCA && // The Basic Constraints extension MUST have the CA component set to false
-                            (aaguid_ext != null ? !aaguid_ext.critical && aaguid_ext.value.slice(2).equals(authrDataStruct.aaguid) : true ); // If attestnCert contains an extension with OID 1.3.6.1.4.1.45724.1.1.4 (id-fido-gen-ce-aaguid) verify that the value of this extension matches the aaguid in authenticatorData.
+                            (aaguid_ext != null ? (authrDataStruct.hasOwnProperty('aaguid') ? !aaguid_ext.critical && aaguid_ext.value.slice(2).equals(authrDataStruct.aaguid) : false) : true); // If attestnCert contains an extension with OID 1.3.6.1.4.1.45724.1.1.4 (id-fido-gen-ce-aaguid) verify that the value of this extension matches the aaguid in authenticatorData.
 
         if(response.verified) {
             response.authrInfo = {
