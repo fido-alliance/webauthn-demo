@@ -242,14 +242,28 @@ let verifyAuthenticatorAttestationResponse = (webAuthnResponse) => {
         // Getting requirements from https://www.w3.org/TR/webauthn/#packed-attestation
         let aaguid_ext = pem.getExtension('1.3.6.1.4.1.45724.1.1.4')
 
-        response.verified = verifySignature(signature, signatureBase, PEMCertificate) &&
-                            pem.version == 3 && // version must be 3 (which is indicated by an ASN.1 INTEGER with value 2)
-                            typeof iso_3166_1.whereAlpha2(pem.subject.countryName) !== 'undefined' && // ISO 3166 valid country
-                            pem.subject.organizationName && // Legal name of the Authenticator vendor (UTF8String)
-                            pem.subject.organizationalUnitName === 'Authenticator Attestation' && //Literal string “Authenticator Attestation” (UTF8String)
-                            pem.subject.commonName && // A UTF8String of the vendor’s choosing
-                            !pem.extensions.isCA && // The Basic Constraints extension MUST have the CA component set to false
-                            (aaguid_ext != null ? (authrDataStruct.hasOwnProperty('aaguid') ? !aaguid_ext.critical && aaguid_ext.value.slice(2).equals(authrDataStruct.aaguid) : false) : true); // If attestnCert contains an extension with OID 1.3.6.1.4.1.45724.1.1.4 (id-fido-gen-ce-aaguid) verify that the value of this extension matches the aaguid in authenticatorData.
+        response.verified = // Verify that sig is a valid signature over the concatenation of authenticatorData
+                            // and clientDataHash using the attestation public key in attestnCert with the algorithm specified in alg.
+                            verifySignature(signature, signatureBase, PEMCertificate) &&
+                            // version must be 3 (which is indicated by an ASN.1 INTEGER with value 2)
+                            pem.version == 3 &&
+                            // ISO 3166 valid country
+                            typeof iso_3166_1.whereAlpha2(pem.subject.countryName) !== 'undefined' &&
+                            // Legal name of the Authenticator vendor (UTF8String)
+                            pem.subject.organizationName &&
+                            // Literal string “Authenticator Attestation” (UTF8String)
+                            pem.subject.organizationalUnitName === 'Authenticator Attestation' &&
+                            // A UTF8String of the vendor’s choosing
+                            pem.subject.commonName &&
+                            // The Basic Constraints extension MUST have the CA component set to false
+                            !pem.extensions.isCA &&
+                            // If attestnCert contains an extension with OID 1.3.6.1.4.1.45724.1.1.4 (id-fido-gen-ce-aaguid)
+                            // verify that the value of this extension matches the aaguid in authenticatorData.
+                            // The extension MUST NOT be marked as critical.
+                            (aaguid_ext != null ?
+                              (authrDataStruct.hasOwnProperty('aaguid') ?
+                                !aaguid_ext.critical && aaguid_ext.value.slice(2).equals(authrDataStruct.aaguid) : false)
+                              : true);
 
         if(response.verified) {
             response.authrInfo = {
