@@ -4,12 +4,16 @@
   "description": "",
   "main": "app.js",
   "dependencies": {
+    "@fidm/x509": "^1.2.0",
     "base64url": "^2.0.0",
     "body-parser": "^1.15.2",
     "cbor": "^3.0.3",
     "cookie-parser": "^1.4.3",
     "cookie-session": "^2.0.0-beta.3",
-    "express": "^4.15.4"
+    "elliptic": "^6.4.1",
+    "express": "^4.15.4",
+    "iso-3166-1": "^1.1.0",
+    "node-rsa": "^1.0.5"
   },
   "repository": {
     "type": "git",
