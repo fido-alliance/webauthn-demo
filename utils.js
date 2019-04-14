@@ -1,6 +1,60 @@
-const crypto    = require('crypto');
-const base64url = require('base64url');
-const cbor      = require('cbor');
+const crypto          = require('crypto');
+const base64url       = require('base64url');
+const cbor            = require('cbor');
+const { Certificate } = require('@fidm/x509');
+const iso_3166_1      = require('iso-3166-1');
+const elliptic        = require('elliptic');
+const NodeRSA         = require('node-rsa');
+
+/**
+ * for packed attestation
+ */
+let COSEKEYS = {
+    'kty': 1,
+    'alg': 3,
+    'crv': -1,
+    'x': -2,
+    'y': -3,
+    'n': -1,
+    'e': -2
+}
+
+let COSEKTY = {
+    'OKP': 1,
+    'EC2': 2,
+    'RSA': 3
+}
+
+let COSERSASCHEME = {
+    '-3': 'pss-sha256',
+    '-39': 'pss-sha512',
+    '-38': 'pss-sha384',
+    '-65535': 'pkcs1-sha1',
+    '-257': 'pkcs1-sha256',
+    '-258': 'pkcs1-sha384',
+    '-259': 'pkcs1-sha512'
+}
+
+let COSECRV = {
+    '1': 'p256',
+    '2': 'p384',
+    '3': 'p521'
+}
+
+let COSEALGHASH = {
+    '-257': 'sha256',
+    '-258': 'sha384',
+    '-259': 'sha512',
+    '-65535': 'sha1',
+    '-39': 'sha512',
+    '-38': 'sha384',
+    '-37': 'sha256',
+    '-260': 'sha256',
+    '-261': 'sha512',
+    '-7': 'sha256',
+    '-36': 'sha384',
+    '-37': 'sha512'
+}
 
 /**
  * U2F Presence constant
@@ -88,11 +142,12 @@ let generateServerGetAssertion = (authenticators) => {
 
 /**
  * Returns SHA-256 digest of the given data.
+ * @param  {String} alg  - COSEALGHASH type
  * @param  {Buffer} data - data to hash
  * @return {Buffer}      - the hash
  */
-let hash = (data) => {
-    return crypto.createHash('SHA256').update(data).digest();
+let hash = (alg, data) => {
+    return crypto.createHash(alg).update(data).digest();
 }
 
 /**
@@ -196,25 +251,24 @@ let parseMakeCredAuthData = (buffer) => {
 let verifyAuthenticatorAttestationResponse = (webAuthnResponse) => {
     let attestationBuffer = base64url.toBuffer(webAuthnResponse.response.attestationObject);
     let ctapMakeCredResp  = cbor.decodeAllSync(attestationBuffer)[0];
+    let authrDataStruct   = parseMakeCredAuthData(ctapMakeCredResp.authData);
+    let publicKey         = COSEECDHAtoPKCS(authrDataStruct.COSEPublicKey)
 
-    let response = {'verified': false};
-    if(ctapMakeCredResp.fmt === 'fido-u2f') {
-        let authrDataStruct = parseMakeCredAuthData(ctapMakeCredResp.authData);
-
-        if(!(authrDataStruct.flags & U2F_USER_PRESENTED))
+    let response = { 'verified': false };
+    if (ctapMakeCredResp.fmt === 'fido-u2f') {
+        if (!(authrDataStruct.flags & U2F_USER_PRESENTED))
             throw new Error('User was NOT presented durring authentication!');
 
-        let clientDataHash  = hash(base64url.toBuffer(webAuthnResponse.response.clientDataJSON))
-        let reservedByte    = Buffer.from([0x00]);
-        let publicKey       = COSEECDHAtoPKCS(authrDataStruct.COSEPublicKey)
-        let signatureBase   = Buffer.concat([reservedByte, authrDataStruct.rpIdHash, clientDataHash, authrDataStruct.credID, publicKey]);
+        let clientDataHash = hash('sha256', base64url.toBuffer(webAuthnResponse.response.clientDataJSON))
+        let reservedByte   = Buffer.from([0x00]);
+        let signatureBase  = Buffer.concat([reservedByte, authrDataStruct.rpIdHash, clientDataHash, authrDataStruct.credID, publicKey]);
 
         let PEMCertificate = ASN1toPEM(ctapMakeCredResp.attStmt.x5c[0]);
         let signature      = ctapMakeCredResp.attStmt.sig;
 
-        response.verified = verifySignature(signature, signatureBase, PEMCertificate)
+        response.verified  = verifySignature(signature, signatureBase, PEMCertificate)
 
-        if(response.verified) {
+        if (response.verified) {
             response.authrInfo = {
                 fmt: 'fido-u2f',
                 publicKey: base64url.encode(publicKey),
@@ -222,6 +276,101 @@ let verifyAuthenticatorAttestationResponse = (webAuthnResponse) => {
                 credID: base64url.encode(authrDataStruct.credID)
             }
         }
+    } else if (ctapMakeCredResp.fmt === 'packed') {
+        if (ctapMakeCredResp.attStmt.hasOwnProperty('x5c')) {
+            // packed attestation + x5c
+            if (!(authrDataStruct.flags & U2F_USER_PRESENTED))
+                throw new Error('User was NOT presented during authentication!');
+
+            let clientDataHash = hash('sha256', base64url.toBuffer(webAuthnResponse.response.clientDataJSON))
+            let signatureBase  = Buffer.concat([ctapMakeCredResp.authData, clientDataHash]);
+
+            let PEMCertificate = ASN1toPEM(ctapMakeCredResp.attStmt.x5c[0]);
+            let signature      = ctapMakeCredResp.attStmt.sig;
+
+            let pem            = Certificate.fromPEM(PEMCertificate);
+
+            // Getting requirements from https://www.w3.org/TR/webauthn/#packed-attestation
+            let aaguid_ext      = pem.getExtension('1.3.6.1.4.1.45724.1.1.4')
+
+            response.verified = // Verify that sig is a valid signature over the concatenation of authenticatorData
+                // and clientDataHash using the attestation public key in attestnCert with the algorithm specified in alg.
+                verifySignature(signature, signatureBase, PEMCertificate) &&
+                // version must be 3 (which is indicated by an ASN.1 INTEGER with value 2)
+                pem.version == 3 &&
+                // ISO 3166 valid country
+                typeof iso_3166_1.whereAlpha2(pem.subject.countryName) !== 'undefined' &&
+                // Legal name of the Authenticator vendor (UTF8String)
+                pem.subject.organizationName &&
+                // Literal string “Authenticator Attestation” (UTF8String)
+                pem.subject.organizationalUnitName === 'Authenticator Attestation' &&
+                // A UTF8String of the vendor’s choosing
+                pem.subject.commonName &&
+                // The Basic Constraints extension MUST have the CA component set to false
+                !pem.extensions.isCA &&
+                // If attestnCert contains an extension with OID 1.3.6.1.4.1.45724.1.1.4 (id-fido-gen-ce-aaguid)
+                // verify that the value of this extension matches the aaguid in authenticatorData.
+                // The extension MUST NOT be marked as critical.
+                (aaguid_ext != null ?
+                    (authrDataStruct.hasOwnProperty('aaguid') ?
+                        !aaguid_ext.critical && aaguid_ext.value.slice(2).equals(authrDataStruct.aaguid) : false)
+                    : true);
+
+        } else if (ctapMakeCredResp.attStmt.hasOwnProperty('ecdaaKeyId')) {
+            // packed attestation + ecdaaKeyId
+            console.log('ECDAA IS NOT SUPPORTED YET!');
+
+        } else {
+            // packed attestation + self (surrogate)
+            let clientDataHashBuf   = hash('sha256', base64url.toBuffer(webAuthnResponse.response.clientDataJSON));
+            let signatureBaseBuffer = Buffer.concat([ctapMakeCredResp.authData, clientDataHashBuf]);
+            let signatureBuffer     = ctapMakeCredResp.attStmt.sig
+            let pubKeyCose          = cbor.decodeAllSync(authrDataStruct.COSEPublicKey)[0];
+            let hashAlg             = COSEALGHASH[pubKeyCose.get(COSEKEYS.alg)];
+
+            if (pubKeyCose.get(COSEKEYS.kty) === COSEKTY.EC2) {
+                let x = pubKeyCose.get(COSEKEYS.x);
+                let y = pubKeyCose.get(COSEKEYS.y);
+
+                let ansiKey = Buffer.concat([Buffer.from([0x04]), x, y]);
+
+                let signatureBaseHash = hash(hashAlg, signatureBaseBuffer);
+
+                let ec  = new elliptic.ec(COSECRV[pubKeyCose.get(COSEKEYS.crv)]);
+                let key = ec.keyFromPublic(ansiKey);
+
+                response.verified = key.verify(signatureBaseHash, signatureBuffer)
+            } else if (pubKeyCose.get(COSEKEYS.kty) === COSEKTY.RSA) {
+                let signingScheme = COSERSASCHEME[pubKeyCose.get(COSEKEYS.alg)];
+
+                let key = new NodeRSA(undefined, { signingScheme });
+                key.importKey({
+                    n: pubKeyCose.get(COSEKEYS.n),
+                    e: 65537,
+                }, 'components-public');
+
+                response.verified = key.verify(signatureBaseBuffer, signatureBuffer)
+            } else if (pubKeyCose.get(COSEKEYS.kty) === COSEKTY.OKP) {
+                let x = pubKeyCose.get(COSEKEYS.x);
+                let signatureBaseHash = hash(hashAlg, signatureBaseBuffer);
+
+                let key = new elliptic.eddsa('ed25519');
+                key.keyFromPublic(x)
+
+                response.verified = key.verify(signatureBaseHash, signatureBuffer)
+            }
+        }
+
+        if (response.verified) {
+            response.authrInfo = {
+                fmt: 'packed',
+                publicKey: base64url.encode(publicKey),
+                counter: authrDataStruct.counter,
+                credID: base64url.encode(authrDataStruct.credID)
+            }
+        }
+    } else {
+        throw new Error('Unsupported attestation format! ' + ctapMakeCredResp.fmt);
     }
 
     return response
@@ -269,7 +418,7 @@ let verifyAuthenticatorAssertionResponse = (webAuthnResponse, authenticators) =>
         if(!(authrDataStruct.flags & U2F_USER_PRESENTED))
             throw new Error('User was NOT presented durring authentication!');
 
-        let clientDataHash   = hash(base64url.toBuffer(webAuthnResponse.response.clientDataJSON))
+        let clientDataHash   = hash('sha256', base64url.toBuffer(webAuthnResponse.response.clientDataJSON))
         let signatureBase    = Buffer.concat([authrDataStruct.rpIdHash, authrDataStruct.flagsBuf, authrDataStruct.counterBuf, clientDataHash]);
 
         let publicKey = ASN1toPEM(base64url.toBuffer(authr.publicKey));
