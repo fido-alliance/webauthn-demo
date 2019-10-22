@@ -4,7 +4,7 @@
   "description": "",
   "main": "app.js",
   "dependencies": {
-    "@fidm/x509": "^1.2.0",
+    "@fidm/x509": "^1.2.1",
     "base64url": "^2.0.0",
     "body-parser": "^1.15.2",
     "cbor": "^3.0.3",
