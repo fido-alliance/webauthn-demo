@@ -76,7 +76,7 @@ let generateServerGetAssertion = (authenticators) => {
         allowCredentials.push({
               type: 'public-key',
               id: authr.credID,
-              transports: ['usb', 'nfc', 'ble']
+              transports: ['internal','usb', 'nfc', 'ble']
         })
     }
     return {
@@ -222,6 +222,26 @@ let verifyAuthenticatorAttestationResponse = (webAuthnResponse) => {
                 credID: base64url.encode(authrDataStruct.credID)
             }
         }
+    } else if (ctapMakeCredResp.fmt === 'packed') {
+        let authrDataStruct = parseMakeCredAuthData(ctapMakeCredResp.authData);
+        if (!(authrDataStruct.flags & U2F_USER_PRESENTED))
+            throw new Error('User was NOT presented durring authentication!');
+        const clientDataHash = hash(base64url.toBuffer(webAuthnResponse.response.clientDataJSON))
+        const publicKey = COSEECDHAtoPKCS(authrDataStruct.COSEPublicKey)
+        const signatureBase = Buffer.concat([ctapMakeCredResp.authData, clientDataHash]);
+        const PEMCertificate = ASN1toPEM(publicKey);
+        const { attStmt: { sig: signature, alg } } = ctapMakeCredResp
+        response.verified = verifySignature(signature, signatureBase, PEMCertificate) && alg === -7
+        if (response.verified) {
+            response.authrInfo = {
+                fmt: 'fido-u2f',
+                publicKey: base64url.encode(publicKey),
+                counter: authrDataStruct.counter,
+                credID: base64url.encode(authrDataStruct.credID)
+            }
+        }
+    } else {
+        throw new Error('Unsupported attestation format! ' + ctapMakeCredResp.fmt);
     }
 
     return response
