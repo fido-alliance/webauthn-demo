@@ -78,7 +78,7 @@ let generateServerGetAssertion = (authenticators) => {
         allowCredentials.push({
               type: 'public-key',
               id: authr.credID,
-              transports: ['usb', 'nfc', 'ble']
+              transports: ['internal']
         })
     }
     return {
@@ -266,6 +266,28 @@ let verifyAuthenticatorAttestationResponse = (webAuthnResponse) => {
                               : true);
 
         if(response.verified) {
+            response.authrInfo = {
+                fmt: 'fido-u2f',
+                publicKey: base64url.encode(publicKey),
+                counter: authrDataStruct.counter,
+                credID: base64url.encode(authrDataStruct.credID)
+            }
+        }
+    } else if (ctapMakeCredResp.fmt === 'packed') {
+        let authrDataStruct = parseMakeCredAuthData(ctapMakeCredResp.authData);
+
+        if (!(authrDataStruct.flags & U2F_USER_PRESENTED))
+            throw new Error('User was NOT presented durring authentication!');
+
+        let clientDataHash = hash(base64url.toBuffer(webAuthnResponse.response.clientDataJSON))
+        let publicKey = COSEECDHAtoPKCS(authrDataStruct.COSEPublicKey)
+        let signatureBase = Buffer.concat([ctapMakeCredResp.authData, clientDataHash]);
+        let signature = ctapMakeCredResp.attStmt.sig;
+        let pem = ASN1toPEM(publicKey);
+
+        response.verified = verifySignature(signature, signatureBase, pem);
+
+        if (response.verified) {
             response.authrInfo = {
                 fmt: 'fido-u2f',
                 publicKey: base64url.encode(publicKey),
