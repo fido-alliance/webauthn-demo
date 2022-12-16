@@ -77,6 +77,8 @@ router.post('/response', (request, response) => {
     if(!request.body       || !request.body.id
     || !request.body.rawId || !request.body.response
     || !request.body.type  || request.body.type !== 'public-key' ) {
+        request.session.challenge = undefined;
+        request.session.username = undefined;
         response.json({
             'status': 'failed',
             'message': 'Response missing one or more of id/rawId/response/type fields, or type is not public-key!'

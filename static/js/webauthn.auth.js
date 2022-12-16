@@ -64,7 +64,12 @@ $('#register').submit(function(event) {
                 alert(`Server responed with error. The message is: ${response.message}`);
             }
         })
-        .catch((error) => alert(error))
+        .catch((error) => {
+            //on navigator.credentials.create error, send empty (aka invalid) object to the server to signal the error
+            //the server then needs to clear its session variables
+            sendWebAuthnResponse({}); 
+            alert(error)
+        })
 })
 
 let getGetAssertionChallenge = (formBody) => {
